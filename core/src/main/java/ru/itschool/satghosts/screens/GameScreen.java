@@ -46,9 +46,19 @@ public class GameScreen implements Screen {
     private boolean invincible;
     private float invincibleTimer;
 
+    // Бонусы
+    private Rectangle[] bonuses;
+    private boolean[] bonusActive;
+    private int bonusCount;
+    private int collectedBonuses;
+    private float bonusPulseTime;
+
     // Таймер
     private float gameTime;
     private String timeString;
+
+    // Стартовая позиция игрока
+    private int startX, startY;
 
     // Кнопки UI
     private Rectangle pauseButton;
@@ -69,6 +79,7 @@ public class GameScreen implements Screen {
         this.invincibleTimer = 0;
         this.gameTime = 0;
         this.timeString = "00:00";
+        this.collectedBonuses = 0;
 
         screenWidth = Gdx.graphics.getWidth();
         screenHeight = Gdx.graphics.getHeight();
@@ -110,11 +121,14 @@ public class GameScreen implements Screen {
         int mazeHeight = currentMaze.length;
         int mazeWidth = currentMaze[0].length;
 
+        // Находим позицию игрока и выхода
         for (int y = 0; y < mazeHeight; y++) {
             for (int x = 0; x < mazeWidth; x++) {
                 if (currentMaze[y][x] == 0 && playerX == -1) {
                     playerX = x;
                     playerY = y;
+                    startX = x;
+                    startY = y;
                 }
                 if (currentMaze[y][x] == 2) {
                     exitX = x;
@@ -123,6 +137,7 @@ public class GameScreen implements Screen {
             }
         }
 
+        // Создаем игрока
         if (playerX != -1 && playerY != -1) {
             player = new Player(playerX * cellSize + (cellSize * 0.1f),
                 playerY * cellSize + (cellSize * 0.1f),
@@ -130,6 +145,7 @@ public class GameScreen implements Screen {
                 cellSize * 0.8f);
         }
 
+        // Находим позицию для монстра
         int monsterX = -1;
         int monsterY = -1;
 
@@ -161,11 +177,58 @@ public class GameScreen implements Screen {
             monsterSpeed);
 
         exitZone = new Rectangle(exitX * cellSize, exitY * cellSize, cellSize, cellSize);
+
+        // Создаем бонусы (звездочки)
+        createBonuses();
+    }
+
+    private void createBonuses() {
+        int mazeHeight = currentMaze.length;
+        int mazeWidth = currentMaze[0].length;
+
+        // Количество бонусов зависит от уровня
+        bonusCount = Math.min(3 + currentLevel / 3, 8);
+        bonuses = new Rectangle[bonusCount];
+        bonusActive = new boolean[bonusCount];
+
+        int placedBonuses = 0;
+
+        for (int i = 0; i < bonusCount; i++) {
+            boolean placed = false;
+            int attempts = 0;
+
+            while (!placed && attempts < 100) {
+                int randX = (int)(Math.random() * mazeWidth);
+                int randY = (int)(Math.random() * mazeHeight);
+
+                // Проверяем что это свободное место, не старт, не выход и не ловушка
+                if (currentMaze[randY][randX] == 0 &&
+                    (randX != startX || randY != startY) &&
+                    (randX != exitX || randY != exitY)) {
+
+                    // Проверяем что бонус не на монстре
+                    int monsterCellX = (int)(monster.x / cellSize);
+                    int monsterCellY = (int)(monster.y / cellSize);
+                    if (randX != monsterCellX || randY != monsterCellY) {
+                        bonuses[i] = new Rectangle(randX * cellSize + cellSize * 0.25f,
+                            randY * cellSize + cellSize * 0.25f,
+                            cellSize * 0.5f, cellSize * 0.5f);
+                        bonusActive[i] = true;
+                        placed = true;
+                        placedBonuses++;
+                    }
+                }
+                attempts++;
+            }
+        }
+
+        bonusCount = placedBonuses;
     }
 
     @Override
     public void render(float delta) {
         pulseTime += delta;
+        bonusPulseTime += delta;
 
         if (invincible) {
             invincibleTimer -= delta;
@@ -212,6 +275,13 @@ public class GameScreen implements Screen {
         int minutes = (int)(gameTime / 60);
         int seconds = (int)(gameTime % 60);
         timeString = String.format("%02d:%02d", minutes, seconds);
+    }
+
+    private void respawnPlayer() {
+        // Возвращаем игрока на стартовую позицию
+        player.x = startX * cellSize + (cellSize * 0.1f);
+        player.y = startY * cellSize + (cellSize * 0.1f);
+        player.update(0);
     }
 
     private void handleInput() {
@@ -306,6 +376,7 @@ public class GameScreen implements Screen {
 
         player.update(delta);
         checkTraps();
+        checkBonuses();
 
         if (monster != null) {
             monster.update(delta, player, currentMaze, cellSize);
@@ -319,13 +390,28 @@ public class GameScreen implements Screen {
             } else {
                 invincible = true;
                 invincibleTimer = 1.5f;
-                player.move(-moveX * 2, -moveY * 2);
+                respawnPlayer();
             }
         }
 
         if (player.getBounds().overlaps(exitZone)) {
             levelComplete = true;
             gameOverTimer = 2f;
+        }
+    }
+
+    private void checkBonuses() {
+        if (bonuses == null) return;
+
+        for (int i = 0; i < bonusCount; i++) {
+            if (bonusActive[i] && player.getBounds().overlaps(bonuses[i])) {
+                bonusActive[i] = false;
+                collectedBonuses++;
+                // Добавляем дополнительную жизнь за каждые 3 собранных бонуса
+                if (collectedBonuses % 3 == 0 && lives < 3) {
+                    lives++;
+                }
+            }
         }
     }
 
@@ -343,7 +429,7 @@ public class GameScreen implements Screen {
                 } else {
                     invincible = true;
                     invincibleTimer = 1.5f;
-                    player.move(-Math.signum(player.x) * cellSize, -Math.signum(player.y) * cellSize);
+                    respawnPlayer();
                 }
             }
         }
@@ -411,6 +497,34 @@ public class GameScreen implements Screen {
 
         shapeRenderer.end();
 
+        // Рисуем бонусы (звездочки)
+        if (bonuses != null) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < bonusCount; i++) {
+                if (bonusActive[i]) {
+                    float pulse = (float)(Math.sin(bonusPulseTime * 5 + i) * 0.3 + 0.7);
+                    shapeRenderer.setColor(new Color(1, pulse, 0, 1));
+                    shapeRenderer.circle(bonuses[i].x + bonuses[i].width / 2,
+                        bonuses[i].y + bonuses[i].height / 2,
+                        bonuses[i].width / 2);
+
+                    // Рисуем лучи звезды
+                    shapeRenderer.setColor(new Color(1, pulse, 0, 0.8f));
+                    for (int a = 0; a < 4; a++) {
+                        float angle = (float)(bonusPulseTime * 3 + a * Math.PI / 2);
+                        float dx = (float)Math.cos(angle) * bonuses[i].width * 0.7f;
+                        float dy = (float)Math.sin(angle) * bonuses[i].height * 0.7f;
+                        shapeRenderer.rectLine(bonuses[i].x + bonuses[i].width / 2,
+                            bonuses[i].y + bonuses[i].height / 2,
+                            bonuses[i].x + bonuses[i].width / 2 + dx,
+                            bonuses[i].y + bonuses[i].height / 2 + dy,
+                            3);
+                    }
+                }
+            }
+            shapeRenderer.end();
+        }
+
         if (player != null) {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             if (invincible && (int)(pulseTime * 10) % 2 == 0) {
@@ -452,21 +566,24 @@ public class GameScreen implements Screen {
         font.draw(batch, "EXIT", exitScreenPos.x, exitScreenPos.y + cellSize * 0.6f);
         batch.end();
 
-        // Уровень слева вверху
         batch.begin();
         font.setColor(Color.BLACK);
         font.draw(batch, "Level: " + currentLevel + " / 15", 21, screenHeight - 29);
         font.setColor(Color.WHITE);
         font.draw(batch, "Level: " + currentLevel + " / 15", 20, screenHeight - 30);
 
-        // Таймер справа вверху
         font.setColor(Color.BLACK);
         font.draw(batch, "Time: " + timeString, screenWidth - 121, screenHeight - 29);
         font.setColor(Color.CYAN);
         font.draw(batch, "Time: " + timeString, screenWidth - 120, screenHeight - 30);
+
+        // Отображение собранных бонусов
+        font.setColor(Color.BLACK);
+        font.draw(batch, "Stars: " + collectedBonuses + " / " + bonusCount, screenWidth / 2 - 80, screenHeight - 29);
+        font.setColor(Color.YELLOW);
+        font.draw(batch, "Stars: " + collectedBonuses + " / " + bonusCount, screenWidth / 2 - 81, screenHeight - 30);
         batch.end();
 
-        // Кнопка паузы
         shapeRenderer.setProjectionMatrix(uiCamera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(new Color(0.2f, 0.2f, 0.2f, 0.8f));
@@ -476,10 +593,9 @@ public class GameScreen implements Screen {
         shapeRenderer.rect(pauseButton.x + 29, pauseButton.y + 15, 6, 20);
         shapeRenderer.end();
 
-        // Сердечки
         float heartSize = 30;
         float startX = screenWidth / 2 - (3 * heartSize) / 2;
-        float heartY = screenHeight - 35;
+        float heartY = screenHeight - 70;
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (int i = 0; i < 3; i++) {
@@ -488,7 +604,6 @@ public class GameScreen implements Screen {
         }
         shapeRenderer.end();
 
-        // Инструкция
         batch.begin();
         font.setColor(Color.BLACK);
         font.draw(batch, "WASD or Arrows to move", screenWidth / 2 - 110, 35);
@@ -554,37 +669,38 @@ public class GameScreen implements Screen {
 
         batch.begin();
 
-        // Заголовок
         bigFont.setColor(Color.BLACK);
         layout.setText(bigFont, "PAUSED");
         bigFont.draw(batch, "PAUSED", screenWidth / 2 - layout.width / 2 + 3, screenHeight / 2 + 170 - 3);
         bigFont.setColor(Color.YELLOW);
         bigFont.draw(batch, "PAUSED", screenWidth / 2 - layout.width / 2, screenHeight / 2 + 170);
 
-        // Время игры
         font.setColor(Color.BLACK);
         layout.setText(font, "Time played: " + timeString);
         font.draw(batch, "Time played: " + timeString, screenWidth / 2 - layout.width / 2 + 2, screenHeight / 2 + 110 - 2);
         font.setColor(Color.CYAN);
         font.draw(batch, "Time played: " + timeString, screenWidth / 2 - layout.width / 2, screenHeight / 2 + 110);
 
-        // Уровень
         font.setColor(Color.BLACK);
         layout.setText(font, "Current Level: " + currentLevel + " / 15");
         font.draw(batch, "Current Level: " + currentLevel + " / 15", screenWidth / 2 - layout.width / 2 + 2, screenHeight / 2 + 80 - 2);
         font.setColor(Color.WHITE);
         font.draw(batch, "Current Level: " + currentLevel + " / 15", screenWidth / 2 - layout.width / 2, screenHeight / 2 + 80);
 
-        // Жизни текстом
         font.setColor(Color.BLACK);
         layout.setText(font, "Lives: " + lives + " / 3");
         font.draw(batch, "Lives: " + lives + " / 3", screenWidth / 2 - layout.width / 2 + 2, screenHeight / 2 + 50 - 2);
         font.setColor(Color.RED);
         font.draw(batch, "Lives: " + lives + " / 3", screenWidth / 2 - layout.width / 2, screenHeight / 2 + 50);
 
+        font.setColor(Color.BLACK);
+        layout.setText(font, "Stars collected: " + collectedBonuses + " / " + bonusCount);
+        font.draw(batch, "Stars collected: " + collectedBonuses + " / " + bonusCount, screenWidth / 2 - layout.width / 2 + 2, screenHeight / 2 + 20 - 2);
+        font.setColor(Color.YELLOW);
+        font.draw(batch, "Stars collected: " + collectedBonuses + " / " + bonusCount, screenWidth / 2 - layout.width / 2, screenHeight / 2 + 20);
+
         batch.end();
 
-        // Кнопка Resume
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(new Color(0.2f, 0.7f, 0.2f, 1));
         shapeRenderer.rect(resumeButton.x, resumeButton.y, resumeButton.width, resumeButton.height);
@@ -600,7 +716,6 @@ public class GameScreen implements Screen {
         font.draw(batch, "RESUME", resumeButton.x + resumeButton.width / 2 - layout.width / 2, resumeButton.y + 38);
         batch.end();
 
-        // Кнопка Main Menu
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(new Color(0.6f, 0.4f, 0.1f, 1));
         shapeRenderer.rect(menuButton.x, menuButton.y, menuButton.width, menuButton.height);
@@ -616,7 +731,6 @@ public class GameScreen implements Screen {
         font.draw(batch, "MAIN MENU", menuButton.x + menuButton.width / 2 - layout.width / 2, menuButton.y + 38);
         batch.end();
 
-        // Кнопка Exit Game
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(new Color(0.7f, 0.2f, 0.2f, 1));
         shapeRenderer.rect(pauseMenuButton.x, pauseMenuButton.y, pauseMenuButton.width, pauseMenuButton.height);
@@ -670,6 +784,17 @@ public class GameScreen implements Screen {
                 playerCellY * cellSize + (cellSize * 0.1f),
                 cellSize * 0.8f,
                 cellSize * 0.8f);
+        }
+        if (bonuses != null) {
+            for (int i = 0; i < bonusCount; i++) {
+                if (bonuses[i] != null && bonusActive[i]) {
+                    int bonusCellX = (int)(bonuses[i].x / cellSize);
+                    int bonusCellY = (int)(bonuses[i].y / cellSize);
+                    bonuses[i].set(bonusCellX * cellSize + cellSize * 0.25f,
+                        bonusCellY * cellSize + cellSize * 0.25f,
+                        cellSize * 0.5f, cellSize * 0.5f);
+                }
+            }
         }
         if (monster != null) {
             int monsterCellX = (int)(monster.x / cellSize);
