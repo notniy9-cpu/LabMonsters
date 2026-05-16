@@ -24,20 +24,30 @@ public class MainMenuScreen implements Screen {
     private BitmapFont settingsFont;
     private GlyphLayout layout;
 
+    // Кнопки главного меню
     private Rectangle playButton;
+    private Rectangle customsButton;
     private Rectangle settingsButton;
     private Rectangle exitButton;
 
     private boolean showSettings;
+    private boolean showCustomization;
     private boolean soundEnabled;
     private boolean musicEnabled;
     private float volume;
+    private int selectedCharacter;
 
+    // Кнопки настроек
     private Rectangle soundButton;
     private Rectangle musicButton;
     private Rectangle volumeUpButton;
     private Rectangle volumeDownButton;
     private Rectangle backButton;
+
+    // Кнопки выбора персонажа
+    private Rectangle[] characterButtons;
+    private String[] characterNames = {"GREEN KNIGHT", "BLUE MAGE", "RED WARRIOR", "GOLD ARCHER"};
+    private Color[] characterColors = {Color.GREEN, Color.BLUE, Color.RED, Color.YELLOW};
 
     private float time;
     private float pulseScale;
@@ -45,9 +55,11 @@ public class MainMenuScreen implements Screen {
     public MainMenuScreen(Main game) {
         this.game = game;
         this.showSettings = false;
+        this.showCustomization = false;
         this.soundEnabled = true;
         this.musicEnabled = true;
         this.volume = 0.7f;
+        this.selectedCharacter = 0;
 
         camera = new OrthographicCamera();
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -59,31 +71,45 @@ public class MainMenuScreen implements Screen {
         titleFont.getData().setScale(3f);
 
         buttonFont = new BitmapFont();
-        buttonFont.getData().setScale(1.8f);
+        buttonFont.getData().setScale(1.5f);
 
         settingsFont = new BitmapFont();
-        settingsFont.getData().setScale(1.5f);
+        settingsFont.getData().setScale(1.3f);
 
-        float buttonWidth = 280;
-        float buttonHeight = 70;
+        float buttonWidth = 250;
+        float buttonHeight = 65;
         float centerX = Gdx.graphics.getWidth() / 2 - buttonWidth / 2;
-        float startY = Gdx.graphics.getHeight() / 2 + 50;
+        float startY = Gdx.graphics.getHeight() / 2 + 80;
 
+        // 4 кнопки в главном меню: PLAY, CUSTOMS, SETTINGS, EXIT
         playButton = new Rectangle(centerX, startY, buttonWidth, buttonHeight);
-        settingsButton = new Rectangle(centerX, startY - 90, buttonWidth, buttonHeight);
-        exitButton = new Rectangle(centerX, startY - 180, buttonWidth, buttonHeight);
+        customsButton = new Rectangle(centerX, startY - 85, buttonWidth, buttonHeight);
+        settingsButton = new Rectangle(centerX, startY - 170, buttonWidth, buttonHeight);
+        exitButton = new Rectangle(centerX, startY - 255, buttonWidth, buttonHeight);
 
-        // Кнопки настроек - увеличенный размер
+        // Кнопки настроек
         float settingsWidth = 350;
-        float settingsHeight = 60;
+        float settingsHeight = 55;
         float settingsCenterX = Gdx.graphics.getWidth() / 2 - settingsWidth / 2;
         float settingsStartY = Gdx.graphics.getHeight() / 2 + 120;
 
         soundButton = new Rectangle(settingsCenterX, settingsStartY, settingsWidth, settingsHeight);
-        musicButton = new Rectangle(settingsCenterX, settingsStartY - 80, settingsWidth, settingsHeight);
-        volumeUpButton = new Rectangle(settingsCenterX + 230, settingsStartY - 160, 100, 60);
-        volumeDownButton = new Rectangle(settingsCenterX + 20, settingsStartY - 160, 100, 60);
-        backButton = new Rectangle(settingsCenterX, settingsStartY - 250, settingsWidth, settingsHeight);
+        musicButton = new Rectangle(settingsCenterX, settingsStartY - 75, settingsWidth, settingsHeight);
+        volumeUpButton = new Rectangle(settingsCenterX + 230, settingsStartY - 150, 100, 55);
+        volumeDownButton = new Rectangle(settingsCenterX + 20, settingsStartY - 150, 100, 55);
+        backButton = new Rectangle(settingsCenterX, settingsStartY - 240, settingsWidth, settingsHeight);
+
+        // Кнопки выбора персонажа
+        characterButtons = new Rectangle[4];
+        float charButtonWidth = 300;
+        float charButtonHeight = 55;
+        float charStartY = Gdx.graphics.getHeight() / 2 + 100;
+        for (int i = 0; i < 4; i++) {
+            characterButtons[i] = new Rectangle(Gdx.graphics.getWidth() / 2 - charButtonWidth / 2,
+                charStartY - i * 75,
+                charButtonWidth,
+                charButtonHeight);
+        }
     }
 
     @Override
@@ -104,21 +130,25 @@ public class MainMenuScreen implements Screen {
         drawGradientBackground();
         drawDecorations();
 
-        if (!showSettings) {
+        if (!showSettings && !showCustomization) {
             drawMainMenu();
             handleMainMenuInput();
-        } else {
+        } else if (showSettings) {
             drawSettingsMenu();
             handleSettingsInput();
+        } else if (showCustomization) {
+            drawCustomizationMenu();
+            handleCustomizationInput();
         }
 
         drawTitle();
     }
 
     private void drawMainMenu() {
-        drawButton(playButton, "PLAY GAME", new Color(0.2f, 0.6f, 0.2f, 1), new Color(0.3f, 0.8f, 0.3f, 1));
-        drawButton(settingsButton, "SETTINGS", new Color(0.3f, 0.3f, 0.6f, 1), new Color(0.4f, 0.4f, 0.8f, 1));
-        drawButton(exitButton, "EXIT", new Color(0.6f, 0.2f, 0.2f, 1), new Color(0.8f, 0.3f, 0.3f, 1));
+        drawButton(playButton, "▶ PLAY GAME", new Color(0.2f, 0.6f, 0.2f, 1), new Color(0.3f, 0.8f, 0.3f, 1));
+        drawButton(customsButton, "🎨 CUSTOMS", new Color(0.5f, 0.2f, 0.6f, 1), new Color(0.7f, 0.3f, 0.8f, 1));
+        drawButton(settingsButton, "⚙ SETTINGS", new Color(0.3f, 0.3f, 0.6f, 1), new Color(0.4f, 0.4f, 0.8f, 1));
+        drawButton(exitButton, "✖ EXIT", new Color(0.6f, 0.2f, 0.2f, 1), new Color(0.8f, 0.3f, 0.3f, 1));
     }
 
     private void drawSettingsMenu() {
@@ -128,7 +158,7 @@ public class MainMenuScreen implements Screen {
         shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         shapeRenderer.end();
 
-        // Панель настроек - увеличенная
+        // Панель настроек
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(new Color(0.1f, 0.1f, 0.2f, 0.98f));
         shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 220, Gdx.graphics.getHeight() / 2 - 220, 440, 440);
@@ -145,11 +175,11 @@ public class MainMenuScreen implements Screen {
         buttonFont.draw(batch, "SETTINGS", Gdx.graphics.getWidth() / 2 - layout.width / 2, Gdx.graphics.getHeight() / 2 + 178);
         batch.end();
 
-        // Кнопка Sound с текстом
+        // Кнопка Sound
         String soundText = "SOUND: " + (soundEnabled ? "ON" : "OFF");
         drawSettingsButton(soundButton, soundText, soundEnabled ? new Color(0.2f, 0.6f, 0.2f, 1) : new Color(0.6f, 0.2f, 0.2f, 1));
 
-        // Кнопка Music с текстом
+        // Кнопка Music
         String musicText = "MUSIC: " + (musicEnabled ? "ON" : "OFF");
         drawSettingsButton(musicButton, musicText, musicEnabled ? new Color(0.2f, 0.6f, 0.2f, 1) : new Color(0.6f, 0.2f, 0.2f, 1));
 
@@ -158,15 +188,15 @@ public class MainMenuScreen implements Screen {
         settingsFont.setColor(Color.WHITE);
         String volumeText = "VOLUME: " + (int)(volume * 100) + "%";
         layout.setText(settingsFont, volumeText);
-        settingsFont.draw(batch, volumeText, Gdx.graphics.getWidth() / 2 - layout.width / 2, Gdx.graphics.getHeight() / 2 - 60);
+        settingsFont.draw(batch, volumeText, Gdx.graphics.getWidth() / 2 - layout.width / 2, Gdx.graphics.getHeight() / 2 - 40);
         batch.end();
 
         // Полоса громкости
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(Color.DARK_GRAY);
-        shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 150, Gdx.graphics.getHeight() / 2 - 100, 300, 20);
+        shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 150, Gdx.graphics.getHeight() / 2 - 80, 300, 20);
         shapeRenderer.setColor(Color.GREEN);
-        shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 150, Gdx.graphics.getHeight() / 2 - 100, 300 * volume, 20);
+        shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 150, Gdx.graphics.getHeight() / 2 - 80, 300 * volume, 20);
         shapeRenderer.end();
 
         // Кнопки + и -
@@ -177,6 +207,61 @@ public class MainMenuScreen implements Screen {
         drawSettingsButton(backButton, "BACK", new Color(0.6f, 0.4f, 0.1f, 1));
     }
 
+    private void drawCustomizationMenu() {
+        // Затемнение фона
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(new Color(0, 0, 0, 0.85f));
+        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        shapeRenderer.end();
+
+        // Панель выбора персонажа
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(new Color(0.1f, 0.1f, 0.2f, 0.98f));
+        shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 240, Gdx.graphics.getHeight() / 2 - 280, 480, 560);
+        shapeRenderer.setColor(Color.WHITE);
+        shapeRenderer.rect(Gdx.graphics.getWidth() / 2 - 238, Gdx.graphics.getHeight() / 2 - 278, 476, 556);
+        shapeRenderer.end();
+
+        // Заголовок
+        batch.begin();
+        buttonFont.setColor(Color.BLACK);
+        layout.setText(buttonFont, "SELECT YOUR CHARACTER");
+        buttonFont.draw(batch, "SELECT YOUR CHARACTER", Gdx.graphics.getWidth() / 2 - layout.width / 2 + 3, Gdx.graphics.getHeight() / 2 + 230);
+        buttonFont.setColor(Color.YELLOW);
+        buttonFont.draw(batch, "SELECT YOUR CHARACTER", Gdx.graphics.getWidth() / 2 - layout.width / 2, Gdx.graphics.getHeight() / 2 + 228);
+        batch.end();
+
+        // Кнопки выбора персонажа
+        for (int i = 0; i < 4; i++) {
+            Color buttonColor = (selectedCharacter == i) ? characterColors[i] : new Color(0.3f, 0.3f, 0.5f, 1);
+            String buttonText = (selectedCharacter == i) ? "★ " + characterNames[i] + " ★" : characterNames[i];
+            drawCharacterButton(characterButtons[i], buttonText, buttonColor, characterColors[i]);
+        }
+
+        // Превью персонажа
+        float previewSize = 100;
+        float previewX = Gdx.graphics.getWidth() / 2 - previewSize / 2;
+        float previewY = Gdx.graphics.getHeight() / 2 - 200;
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(characterColors[selectedCharacter]);
+        shapeRenderer.rect(previewX, previewY, previewSize, previewSize);
+        shapeRenderer.setColor(Color.WHITE);
+        shapeRenderer.rect(previewX + 3, previewY + 3, previewSize - 6, previewSize - 6);
+        // Рисуем глаза
+        shapeRenderer.setColor(Color.BLACK);
+        shapeRenderer.circle(previewX + previewSize * 0.35f, previewY + previewSize * 0.65f, previewSize * 0.1f);
+        shapeRenderer.circle(previewX + previewSize * 0.65f, previewY + previewSize * 0.65f, previewSize * 0.1f);
+        // Рисуем улыбку
+        shapeRenderer.rectLine(previewX + previewSize * 0.35f, previewY + previewSize * 0.35f,
+            previewX + previewSize * 0.65f, previewY + previewSize * 0.35f, 4);
+        shapeRenderer.end();
+
+        // Кнопка Back
+        Rectangle customsBackButton = new Rectangle(Gdx.graphics.getWidth() / 2 - 120, Gdx.graphics.getHeight() / 2 - 290, 240, 50);
+        drawSettingsButton(customsBackButton, "BACK", new Color(0.6f, 0.4f, 0.1f, 1));
+    }
+
     private void drawTitle() {
         batch.begin();
 
@@ -185,7 +270,7 @@ public class MainMenuScreen implements Screen {
 
         layout.setText(titleFont, "LAB RUNS");
         float titleX = Gdx.graphics.getWidth() / 2 - layout.width / 2;
-        float titleY = Gdx.graphics.getHeight() - 120;
+        float titleY = Gdx.graphics.getHeight() - 100;
         titleFont.draw(batch, "LAB RUNS", titleX + 5, titleY - 5);
 
         titleFont.setColor(new Color(1, 0.8f, 0.2f, 1));
@@ -195,17 +280,13 @@ public class MainMenuScreen implements Screen {
         layout.setText(titleFont, "MONSTERS");
         float subX = Gdx.graphics.getWidth() / 2 - layout.width / 2;
         titleFont.setColor(new Color(0.8f, 0.5f, 0.2f, 1));
-        titleFont.draw(batch, "MONSTERS", subX, titleY - 60);
+        titleFont.draw(batch, "MONSTERS", subX, titleY - 55);
 
-        titleFont.getData().setScale(1.2f);
+        titleFont.getData().setScale(0.9f);
         titleFont.setColor(new Color(0.8f, 0.8f, 0.8f, 1));
-        layout.setText(titleFont, "Use WASD or Arrow Keys to move");
+        layout.setText(titleFont, "WASD or Arrows to move | Find GREEN EXIT | Collect STARS");
         float instX = Gdx.graphics.getWidth() / 2 - layout.width / 2;
-        titleFont.draw(batch, "Use WASD or Arrow Keys to move", instX, 100);
-
-        layout.setText(titleFont, "Find the GREEN EXIT, collect STARS, avoid RED traps!");
-        instX = Gdx.graphics.getWidth() / 2 - layout.width / 2;
-        titleFont.draw(batch, "Find the GREEN EXIT, collect STARS, avoid RED traps!", instX, 60);
+        titleFont.draw(batch, "WASD or Arrows to move | Find GREEN EXIT | Collect STARS", instX, 45);
 
         batch.end();
     }
@@ -220,7 +301,9 @@ public class MainMenuScreen implements Screen {
             float touchY = touchPos.y;
 
             if (playButton.contains(touchX, touchY)) {
-                game.setScreen(new GameScreen(game, 1));
+                game.setScreen(new GameScreen(game, 1, selectedCharacter, characterColors[selectedCharacter]));
+            } else if (customsButton.contains(touchX, touchY)) {
+                showCustomization = true;
             } else if (settingsButton.contains(touchX, touchY)) {
                 showSettings = true;
             } else if (exitButton.contains(touchX, touchY)) {
@@ -250,6 +333,30 @@ public class MainMenuScreen implements Screen {
                 if (volume < 0.0f) volume = 0.0f;
             } else if (backButton.contains(touchX, touchY)) {
                 showSettings = false;
+            }
+        }
+    }
+
+    private void handleCustomizationInput() {
+        if (Gdx.input.justTouched()) {
+            Vector3 touchPos = new Vector3();
+            touchPos.set(Gdx.input.getX(), Gdx.input.getY(), 0);
+            camera.unproject(touchPos);
+
+            float touchX = touchPos.x;
+            float touchY = touchPos.y;
+
+            // Кнопки выбора персонажа
+            for (int i = 0; i < 4; i++) {
+                if (characterButtons[i].contains(touchX, touchY)) {
+                    selectedCharacter = i;
+                }
+            }
+
+            // Кнопка Back
+            Rectangle customsBackButton = new Rectangle(Gdx.graphics.getWidth() / 2 - 120, Gdx.graphics.getHeight() / 2 - 290, 240, 50);
+            if (customsBackButton.contains(touchX, touchY)) {
+                showCustomization = false;
             }
         }
     }
@@ -319,7 +426,6 @@ public class MainMenuScreen implements Screen {
     }
 
     private void drawSettingsButton(Rectangle button, String text, Color color) {
-        // Рисуем фон кнопки
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(color);
         shapeRenderer.rect(button.x, button.y, button.width, button.height);
@@ -327,20 +433,44 @@ public class MainMenuScreen implements Screen {
         shapeRenderer.rect(button.x + 2, button.y + 2, button.width - 4, button.height - 4);
         shapeRenderer.end();
 
-        // Рисуем текст с тенью для лучшей читаемости
         batch.begin();
-
-        // Тень текста
         settingsFont.setColor(new Color(0, 0, 0, 0.8f));
         layout.setText(settingsFont, text);
         float textX = button.x + button.width / 2 - layout.width / 2;
         float textY = button.y + button.height / 2 + layout.height / 2;
         settingsFont.draw(batch, text, textX + 2, textY - 2);
 
-        // Основной текст
         settingsFont.setColor(Color.WHITE);
         settingsFont.draw(batch, text, textX, textY);
+        batch.end();
+    }
 
+    private void drawCharacterButton(Rectangle button, String text, Color color, Color previewColor) {
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(color);
+        shapeRenderer.rect(button.x, button.y, button.width, button.height);
+        shapeRenderer.setColor(Color.WHITE);
+        shapeRenderer.rect(button.x + 2, button.y + 2, button.width - 4, button.height - 4);
+        shapeRenderer.end();
+
+        // Маленький квадратик с цветом персонажа
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(previewColor);
+        shapeRenderer.rect(button.x + 15, button.y + 12, 30, 30);
+        shapeRenderer.setColor(Color.BLACK);
+        shapeRenderer.circle(button.x + 25, button.y + 27, 5);
+        shapeRenderer.circle(button.x + 35, button.y + 27, 5);
+        shapeRenderer.end();
+
+        batch.begin();
+        settingsFont.setColor(new Color(0, 0, 0, 0.8f));
+        layout.setText(settingsFont, text);
+        float textX = button.x + 60;
+        float textY = button.y + button.height / 2 + layout.height / 2;
+        settingsFont.draw(batch, text, textX + 2, textY - 2);
+
+        settingsFont.setColor(Color.WHITE);
+        settingsFont.draw(batch, text, textX, textY);
         batch.end();
     }
 
@@ -348,25 +478,33 @@ public class MainMenuScreen implements Screen {
     public void resize(int width, int height) {
         camera.setToOrtho(false, width, height);
 
-        float buttonWidth = 280;
-        float buttonHeight = 70;
+        float buttonWidth = 250;
+        float buttonHeight = 65;
         float centerX = width / 2 - buttonWidth / 2;
-        float startY = height / 2 + 50;
+        float startY = height / 2 + 80;
 
         playButton.set(centerX, startY, buttonWidth, buttonHeight);
-        settingsButton.set(centerX, startY - 90, buttonWidth, buttonHeight);
-        exitButton.set(centerX, startY - 180, buttonWidth, buttonHeight);
+        customsButton.set(centerX, startY - 85, buttonWidth, buttonHeight);
+        settingsButton.set(centerX, startY - 170, buttonWidth, buttonHeight);
+        exitButton.set(centerX, startY - 255, buttonWidth, buttonHeight);
 
         float settingsWidth = 350;
-        float settingsHeight = 60;
+        float settingsHeight = 55;
         float settingsCenterX = width / 2 - settingsWidth / 2;
         float settingsStartY = height / 2 + 120;
 
         soundButton.set(settingsCenterX, settingsStartY, settingsWidth, settingsHeight);
-        musicButton.set(settingsCenterX, settingsStartY - 80, settingsWidth, settingsHeight);
-        volumeUpButton.set(settingsCenterX + 230, settingsStartY - 160, 100, 60);
-        volumeDownButton.set(settingsCenterX + 20, settingsStartY - 160, 100, 60);
-        backButton.set(settingsCenterX, settingsStartY - 250, settingsWidth, settingsHeight);
+        musicButton.set(settingsCenterX, settingsStartY - 75, settingsWidth, settingsHeight);
+        volumeUpButton.set(settingsCenterX + 230, settingsStartY - 150, 100, 55);
+        volumeDownButton.set(settingsCenterX + 20, settingsStartY - 150, 100, 55);
+        backButton.set(settingsCenterX, settingsStartY - 240, settingsWidth, settingsHeight);
+
+        float charButtonWidth = 300;
+        float charButtonHeight = 55;
+        float charStartY = height / 2 + 100;
+        for (int i = 0; i < 4; i++) {
+            characterButtons[i].set(width / 2 - charButtonWidth / 2, charStartY - i * 75, charButtonWidth, charButtonHeight);
+        }
     }
 
     @Override

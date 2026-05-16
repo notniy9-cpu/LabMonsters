@@ -39,6 +39,10 @@ public class GameScreen implements Screen {
     private float screenWidth;
     private float screenHeight;
 
+    // Цвет персонажа из меню кастомизации
+    private Color playerColor;
+    private int characterIndex;
+
     private Rectangle exitZone;
     private int exitX, exitY;
     private float pulseTime;
@@ -67,9 +71,11 @@ public class GameScreen implements Screen {
     private Rectangle pauseMenuButton;
     private boolean showPauseMenu;
 
-    public GameScreen(Main game, int level) {
+    public GameScreen(Main game, int level, int characterIndex, Color playerColor) {
         this.game = game;
         this.currentLevel = level;
+        this.characterIndex = characterIndex;
+        this.playerColor = playerColor;
         this.gameOver = false;
         this.levelComplete = false;
         this.isPaused = false;
@@ -137,7 +143,7 @@ public class GameScreen implements Screen {
             }
         }
 
-        // Создаем игрока
+        // Создаем игрока с выбранным цветом
         if (playerX != -1 && playerY != -1) {
             player = new Player(playerX * cellSize + (cellSize * 0.1f),
                 playerY * cellSize + (cellSize * 0.1f),
@@ -178,7 +184,7 @@ public class GameScreen implements Screen {
 
         exitZone = new Rectangle(exitX * cellSize, exitY * cellSize, cellSize, cellSize);
 
-        // Создаем бонусы (звездочки)
+        // Создаем бонусы
         createBonuses();
     }
 
@@ -186,7 +192,6 @@ public class GameScreen implements Screen {
         int mazeHeight = currentMaze.length;
         int mazeWidth = currentMaze[0].length;
 
-        // Количество бонусов зависит от уровня
         bonusCount = Math.min(3 + currentLevel / 3, 8);
         bonuses = new Rectangle[bonusCount];
         bonusActive = new boolean[bonusCount];
@@ -201,12 +206,10 @@ public class GameScreen implements Screen {
                 int randX = (int)(Math.random() * mazeWidth);
                 int randY = (int)(Math.random() * mazeHeight);
 
-                // Проверяем что это свободное место, не старт, не выход и не ловушка
                 if (currentMaze[randY][randX] == 0 &&
                     (randX != startX || randY != startY) &&
                     (randX != exitX || randY != exitY)) {
 
-                    // Проверяем что бонус не на монстре
                     int monsterCellX = (int)(monster.x / cellSize);
                     int monsterCellY = (int)(monster.y / cellSize);
                     if (randX != monsterCellX || randY != monsterCellY) {
@@ -253,7 +256,7 @@ public class GameScreen implements Screen {
                     game.setScreen(new MainMenuScreen(game));
                 } else if (levelComplete) {
                     if (currentLevel < 15) {
-                        game.setScreen(new GameScreen(game, currentLevel + 1));
+                        game.setScreen(new GameScreen(game, currentLevel + 1, characterIndex, playerColor));
                     } else {
                         game.setScreen(new MainMenuScreen(game));
                     }
@@ -278,7 +281,6 @@ public class GameScreen implements Screen {
     }
 
     private void respawnPlayer() {
-        // Возвращаем игрока на стартовую позицию
         player.x = startX * cellSize + (cellSize * 0.1f);
         player.y = startY * cellSize + (cellSize * 0.1f);
         player.update(0);
@@ -407,7 +409,6 @@ public class GameScreen implements Screen {
             if (bonusActive[i] && player.getBounds().overlaps(bonuses[i])) {
                 bonusActive[i] = false;
                 collectedBonuses++;
-                // Добавляем дополнительную жизнь за каждые 3 собранных бонуса
                 if (collectedBonuses % 3 == 0 && lives < 3) {
                     lives++;
                 }
@@ -508,7 +509,6 @@ public class GameScreen implements Screen {
                         bonuses[i].y + bonuses[i].height / 2,
                         bonuses[i].width / 2);
 
-                    // Рисуем лучи звезды
                     shapeRenderer.setColor(new Color(1, pulse, 0, 0.8f));
                     for (int a = 0; a < 4; a++) {
                         float angle = (float)(bonusPulseTime * 3 + a * Math.PI / 2);
@@ -525,12 +525,13 @@ public class GameScreen implements Screen {
             shapeRenderer.end();
         }
 
+        // Рисуем игрока с выбранным цветом
         if (player != null) {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             if (invincible && (int)(pulseTime * 10) % 2 == 0) {
                 shapeRenderer.setColor(new Color(1, 1, 1, 0.5f));
             } else {
-                shapeRenderer.setColor(Color.GREEN);
+                shapeRenderer.setColor(playerColor);
             }
             shapeRenderer.rect(player.x, player.y, player.width, player.height);
             shapeRenderer.end();
@@ -577,7 +578,6 @@ public class GameScreen implements Screen {
         font.setColor(Color.CYAN);
         font.draw(batch, "Time: " + timeString, screenWidth - 120, screenHeight - 30);
 
-        // Отображение собранных бонусов
         font.setColor(Color.BLACK);
         font.draw(batch, "Stars: " + collectedBonuses + " / " + bonusCount, screenWidth / 2 - 80, screenHeight - 29);
         font.setColor(Color.YELLOW);
